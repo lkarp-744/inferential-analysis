@@ -1,0 +1,65 @@
+[project]
+name = "inferential-analysis"
+version = "0.1.0"
+description = "Pure-Python inferential analysis"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "numpy>=2.4.4",
+    "pandas>=3.0.2",
+    "plotnine>=0.15.4",
+    "scipy>=1.17.1",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.0.0",
+    "pytest>=9.0.3",
+    "ruff>=0.15.12",
+    "ty>=0.0.34",
+]
+
+[build-system]
+requires = ["setuptools >= 80.1.0"]
+build-backend = "setuptools.build_meta"
+
+# Static type checking configuration
+[tool.mypy]
+strict = true
+warn_unreachable = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+untyped_calls_exclude = ["plotnine"]
+
+[[tool.mypy.overrides]]
+module = [
+  "plotnine",
+  "pymer4.models",
+  "scipy.stats",
+]
+ignore_missing_imports = true
+
+# Linting configuration
+[tool.ruff.lint]
+# Next to the usual rules, we want to activate the following rulesets:
+# isort rules (I), cyclomatic complexity (C90), bandit (S), numpy (NPY), pandas (PD), naming conventions (N) and docstrings "D"
+extend-select = ["I", "C90", "S", "NPY", "PD", "N", "D"]
+
+# We will uses google-style docstrings
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["D", "S101"]
+"__init__.py" = ["D104"]
+
+# Pytest configuration
+[tool.pytest.ini_options]
+addopts = ["--strict-markers"]
+markers = [
+  "integration: marks integrations tests (deselect with '-m \"not integration\"')",
+  "serial",
+]
