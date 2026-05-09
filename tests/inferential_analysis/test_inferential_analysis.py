@@ -76,6 +76,50 @@ def test_system_comparison(
 
 
 @pytest.mark.integration
+def test_system_comparison_2(
+    capsys: pytest.CaptureFixture[str], evaluation_data_cnn_all: pd.DataFrame
+) -> None:
+    inferential_analysis = InferentialAnalysis(
+        evaluation_data=evaluation_data_cnn_all,
+        eval_metric_col="rouge_2",
+        system_col="system",
+        input_identifier_col="summary_id",
+    )
+
+    inferential_analysis.system_comparison()
+
+    assert capsys.readouterr().out == (
+        "Fitting H0-model.\n"
+        "Fitting H1-model.\n"
+        "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems are different. See contrasts for pairwise comparisons.\n"
+    )
+
+    assert inferential_analysis.SystemComparison.glrt == dict(
+        chi_square=pytest.approx(np.float64(11588.40), abs=0.01),
+        df=1,
+        p=0.0,
+    )
+    assert isinstance(inferential_analysis.SystemComparison.means, pd.DataFrame)
+    assert inferential_analysis.SystemComparison.means.to_dict("list") == {
+        "system": ["Baseline", "SOTA"],
+        "Estimate": [0.21, 0.19],
+        "95CI_lo": [0.208, 0.188],
+        "95CI_up": [0.212, 0.192],
+        "SE": [0.001, 0.001],
+    }
+    assert isinstance(inferential_analysis.SystemComparison.contrasts, pd.DataFrame)
+    assert inferential_analysis.SystemComparison.contrasts.to_dict("list") == {
+        "Contrast": ["Baseline - SOTA"],
+        "Estimate": [0.02],
+        "95CI_lo": [0.02],
+        "95CI_up": [0.021],
+        "SE": [0.0],
+        "P-val": [0.0],
+        "Effect_size_g": pytest.approx([0.294151]),
+    }
+
+
+@pytest.mark.integration
 def test_conditional_system_comparison_word_rarity(
     capsys: pytest.CaptureFixture[str], evaluation_data_cnn_best: pd.DataFrame
 ) -> None:
@@ -226,50 +270,6 @@ def test_conditional_system_comparison_flesch_kincaid_score_interaction_plot(
     inferential_analysis.conditional_system_comparison(data_prop_col="flesch_kincaid")
 
     return inferential_analysis.ConditionalSystemComparison.interaction_plot.draw()
-
-
-@pytest.mark.integration
-def test_system_comparison_2(
-    capsys: pytest.CaptureFixture[str], evaluation_data_cnn_all: pd.DataFrame
-) -> None:
-    inferential_analysis = InferentialAnalysis(
-        evaluation_data=evaluation_data_cnn_all,
-        eval_metric_col="rouge_2",
-        system_col="system",
-        input_identifier_col="summary_id",
-    )
-
-    inferential_analysis.system_comparison()
-
-    assert capsys.readouterr().out == (
-        "Fitting H0-model.\n"
-        "Fitting H1-model.\n"
-        "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems are different. See contrasts for pairwise comparisons.\n"
-    )
-
-    assert inferential_analysis.SystemComparison.glrt == dict(
-        chi_square=pytest.approx(np.float64(11588.40), abs=0.01),
-        df=1,
-        p=0.0,
-    )
-    assert isinstance(inferential_analysis.SystemComparison.means, pd.DataFrame)
-    assert inferential_analysis.SystemComparison.means.to_dict("list") == {
-        "system": ["Baseline", "SOTA"],
-        "Estimate": [0.21, 0.19],
-        "95CI_lo": [0.208, 0.188],
-        "95CI_up": [0.212, 0.192],
-        "SE": [0.001, 0.001],
-    }
-    assert isinstance(inferential_analysis.SystemComparison.contrasts, pd.DataFrame)
-    assert inferential_analysis.SystemComparison.contrasts.to_dict("list") == {
-        "Contrast": ["Baseline - SOTA"],
-        "Estimate": [0.02],
-        "95CI_lo": [0.02],
-        "95CI_up": [0.021],
-        "SE": [0.0],
-        "P-val": [0.0],
-        "Effect_size_g": pytest.approx([0.294151]),
-    }
 
 
 @pytest.mark.integration
