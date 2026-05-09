@@ -18,6 +18,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 from typing import Literal, TypedDict
 
 import pandas as pd
+from dataclasses import dataclass, field
 from pandas.api.types import is_numeric_dtype, is_string_dtype
 from plotnine import (
     aes,
@@ -41,11 +42,11 @@ GLRT = TypedDict("GLRT", {"p": float, "chi_square": float, "df": int})
 Distribution = Literal["gaussian", "binomial"]
 
 
+@dataclass(kw_only=True)
 class SystemComparison:
-    def __init__(self) -> None:
-        self.glrt: GLRT = dict(p=1.0, chi_square=0.0, df=0)
-        self.means = pd.DataFrame()
-        self.contrasts = pd.DataFrame()
+    glrt: GLRT
+    means: pd.DataFrame
+    contrasts: pd.DataFrame
 
 
 class ConditionalSystemComparison:
@@ -97,7 +98,6 @@ class InferentialAnalysis:
         self.system = system_col
         self.input_id = input_identifier_col
         self.distribution = distribution
-        self.SystemComparison = SystemComparison()
         self.ConditionalSystemComparison = ConditionalSystemComparison()
         self.Reliability = Reliability()
         self.HyperParameterAssessment = HyperParameterAssessment()
@@ -152,7 +152,7 @@ class InferentialAnalysis:
 
     def system_comparison(
         self, alpha: float = 0.05, verbose: bool = True, row_filter: str = ""
-    ) -> None:
+    ) -> SystemComparison:
         # check input consistency
         if alpha <= 0 or alpha >= 1:
             raise ValueError("alpha must be set to a value in (0,1)!")
@@ -182,17 +182,17 @@ class InferentialAnalysis:
         model_H1.fit(factors=model_factors, REML=False, summarize=False)
 
         # compare models via GLRT
-        self.SystemComparison.glrt = self.GLRT(model_H0, model_H1)
+        glrt = self.GLRT(model_H0, model_H1)
 
         # create means and contasts
         postHoc_result = [r for r in model_H1.post_hoc(marginal_vars=self.system)]
 
-        self.SystemComparison.means = (
+        means = (
             postHoc_result[0]
             .drop(columns="DF")
             .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
         )
-        self.SystemComparison.contrasts = (
+        contrasts = (
             postHoc_result[1]
             .drop(columns=["DF", "T-stat", "Z-stat", "Sig"], errors="ignore")
             .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
@@ -200,11 +200,11 @@ class InferentialAnalysis:
 
         # add effect size (a Hodge's g derivate) to contrasts
         sigma_residuals = model_H1.ranef_var.loc["Residual", "Std"]
-        self.SystemComparison.contrasts = self.SystemComparison.contrasts.assign(
+        contrasts = contrasts.assign(
             Effect_size_g=lambda df: df.Estimate / sigma_residuals
         )
 
-        if self.SystemComparison.glrt["p"] <= alpha and verbose:
+        if glrt["p"] <= alpha and verbose:
             print(
                 "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems are different. See contrasts for pairwise comparisons."
             )
@@ -212,6 +212,8 @@ class InferentialAnalysis:
             print(
                 "GLRT p-value > alpha: Null hypothesis can not be rejected! No statistical signifcant difference(s) between systems."
             )
+
+        return SystemComparison(glrt=glrt, means=means, contrasts=contrasts)
 
     def conditional_system_comparison(
         self,

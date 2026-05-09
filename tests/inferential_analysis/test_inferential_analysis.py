@@ -42,7 +42,7 @@ def test_system_comparison(
         input_identifier_col="summary_id",
     )
 
-    inferential_analysis.system_comparison()
+    result = inferential_analysis.system_comparison()
 
     assert capsys.readouterr().out == (
         "Fitting H0-model.\n"
@@ -50,21 +50,21 @@ def test_system_comparison(
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems are different. See contrasts for pairwise comparisons.\n"
     )
 
-    assert inferential_analysis.SystemComparison.glrt == dict(
+    assert result.glrt == dict(
         chi_square=pytest.approx(np.float64(37.0204), abs=0.0001),
         df=1,
         p=pytest.approx(1.168989e-09),
     )
-    assert isinstance(inferential_analysis.SystemComparison.means, pd.DataFrame)
-    assert inferential_analysis.SystemComparison.means.to_dict("list") == {
+    assert isinstance(result.means, pd.DataFrame)
+    assert result.means.to_dict("list") == {
         "system": ["Baseline", "SOTA"],
         "Estimate": [0.213, 0.217],
         "95CI_lo": [0.210, 0.215],
         "95CI_up": [0.215, 0.220],
         "SE": [0.001, 0.001],
     }
-    assert isinstance(inferential_analysis.SystemComparison.contrasts, pd.DataFrame)
-    assert inferential_analysis.SystemComparison.contrasts.to_dict("list") == {
+    assert isinstance(result.contrasts, pd.DataFrame)
+    assert result.contrasts.to_dict("list") == {
         "Contrast": ["Baseline - SOTA"],
         "Estimate": [-0.005],
         "95CI_lo": [-0.006],
@@ -86,7 +86,7 @@ def test_system_comparison_2(
         input_identifier_col="summary_id",
     )
 
-    inferential_analysis.system_comparison()
+    result = inferential_analysis.system_comparison()
 
     assert capsys.readouterr().out == (
         "Fitting H0-model.\n"
@@ -94,21 +94,21 @@ def test_system_comparison_2(
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems are different. See contrasts for pairwise comparisons.\n"
     )
 
-    assert inferential_analysis.SystemComparison.glrt == dict(
+    assert result.glrt == dict(
         chi_square=pytest.approx(np.float64(11588.40), abs=0.01),
         df=1,
         p=0.0,
     )
-    assert isinstance(inferential_analysis.SystemComparison.means, pd.DataFrame)
-    assert inferential_analysis.SystemComparison.means.to_dict("list") == {
+    assert isinstance(result.means, pd.DataFrame)
+    assert result.means.to_dict("list") == {
         "system": ["Baseline", "SOTA"],
         "Estimate": [0.21, 0.19],
         "95CI_lo": [0.208, 0.188],
         "95CI_up": [0.212, 0.192],
         "SE": [0.001, 0.001],
     }
-    assert isinstance(inferential_analysis.SystemComparison.contrasts, pd.DataFrame)
-    assert inferential_analysis.SystemComparison.contrasts.to_dict("list") == {
+    assert isinstance(result.contrasts, pd.DataFrame)
+    assert result.contrasts.to_dict("list") == {
         "Contrast": ["Baseline - SOTA"],
         "Estimate": [0.02],
         "95CI_lo": [0.02],
