@@ -65,12 +65,12 @@ class Reliability:
     icc: pd.DataFrame
 
 
+@dataclass(kw_only=True)
 class HyperParameterAssessment:
-    def __init__(self) -> None:
-        self.algorithm = ""
-        self.glrt: GLRT = dict(p=1.0, chi_square=0.0, df=0)
-        self.means = pd.DataFrame()
-        self.contrasts = pd.DataFrame()
+    algorithm: str
+    glrt: GLRT
+    means: pd.DataFrame
+    contrasts: pd.DataFrame
 
 
 class ConditionalHyperParameterAssessment:
@@ -98,7 +98,6 @@ class InferentialAnalysis:
         self.system = system_col
         self.input_id = input_identifier_col
         self.distribution = distribution
-        self.HyperParameterAssessment = HyperParameterAssessment()
         self.ConditionalHyperParameterAssessment = ConditionalHyperParameterAssessment()
 
         # check input consistency
@@ -492,7 +491,7 @@ class InferentialAnalysis:
         alpha: float = 0.05,
         verbose: bool = True,
         row_filter: str = "",
-    ) -> None:
+    ) -> HyperParameterAssessment:
         # check input consistency
         if alpha <= 0 or alpha >= 1:
             raise ValueError("alpha must be set to a value in (0,1)!")
@@ -543,18 +542,18 @@ class InferentialAnalysis:
         model_H1.fit(factors=model_factors, REML=False, summarize=False)
 
         # compare models and calculate postHoc stats
-        self.HyperParameterAssessment.glrt = self.GLRT(model_H0, model_H1)
+        glrt = self.GLRT(model_H0, model_H1)
         postHoc_result = [
             r for r in model_H1.post_hoc(marginal_vars=hyperparameter_col)
         ]
 
         # simplify postHoc result
-        self.HyperParameterAssessment.means = (
+        means = (
             postHoc_result[0]
             .drop(columns="DF")
             .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
         )
-        self.HyperParameterAssessment.contrasts = (
+        contrasts = (
             postHoc_result[1]
             .drop(columns=["DF", "T-stat", "Z-stat", "Sig"], errors="ignore")
             .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
@@ -562,13 +561,11 @@ class InferentialAnalysis:
 
         # add effect size (a Hedge's g derivate) to mean model contrasts
         sigma_residuals = model_H1.ranef_var.loc["Residual", "Std"]
-        self.HyperParameterAssessment.contrasts = (
-            self.HyperParameterAssessment.contrasts.assign(
-                Effect_size_g=lambda df: df.Estimate / sigma_residuals
-            )
+        contrasts = contrasts.assign(
+            Effect_size_g=lambda df: df.Estimate / sigma_residuals
         )
 
-        if self.HyperParameterAssessment.glrt["p"] <= alpha and verbose:
+        if glrt["p"] <= alpha and verbose:
             print(
                 "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems are different. See contrasts for pairwise comparisons."
             )
@@ -577,7 +574,9 @@ class InferentialAnalysis:
                 "GLRT p-value > alpha: Null hypothesis can not be rejected! No statistical signifcant difference(s) between systems."
             )
 
-        self.HyperParameterAssessment.algorithm = algorithm_id
+        return HyperParameterAssessment(
+            means=means, algorithm=algorithm_id, contrasts=contrasts, glrt=glrt
+        )
 
     def conditional_hyperparameter_assessment(
         self,

@@ -296,7 +296,7 @@ def test_hyperparameter_assessment(
         system_col="system",
         input_identifier_col="summary_id",
     )
-    inferential_analysis.hyperparameter_assessment(
+    result = inferential_analysis.hyperparameter_assessment(
         algorithm_id="SOTA", hyperparameter_col="lambda"
     )
 
@@ -307,14 +307,14 @@ def test_hyperparameter_assessment(
         "P-values adjusted by tukey method for family of 3 estimates\n"
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems are different. See contrasts for pairwise comparisons.\n"
     )
-    assert inferential_analysis.HyperParameterAssessment.glrt == dict(
+    assert result.glrt == dict(
         chi_square=pytest.approx(60450.5165, abs=0.0001),
         df=2,
         p=0.0,
     )
-    assert inferential_analysis.HyperParameterAssessment.algorithm == "SOTA"
-    assert isinstance(inferential_analysis.HyperParameterAssessment.means, pd.DataFrame)
-    assert inferential_analysis.HyperParameterAssessment.means.to_dict("list") == {
+    assert result.algorithm == "SOTA"
+    assert isinstance(result.means, pd.DataFrame)
+    assert result.means.to_dict("list") == {
         "lambda": ["0-001", "0-01", "0-1"],
         "Estimate": [0.209, 0.213, 0.148],
         "95CI_lo": [0.207, 0.211, 0.146],
@@ -322,10 +322,8 @@ def test_hyperparameter_assessment(
         "SE": [0.001, 0.001, 0.001],
     }
 
-    assert isinstance(
-        inferential_analysis.HyperParameterAssessment.contrasts, pd.DataFrame
-    )
-    assert inferential_analysis.HyperParameterAssessment.contrasts.to_dict("list") == {
+    assert isinstance(result.contrasts, pd.DataFrame)
+    assert result.contrasts.to_dict("list") == {
         "Contrast": ["(0-001) - (0-01)", "(0-001) - (0-1)", "(0-01) - (0-1)"],
         "Estimate": [-0.004, 0.061, 0.065],
         "95CI_lo": [-0.005, 0.060, 0.064],
