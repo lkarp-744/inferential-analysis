@@ -49,14 +49,14 @@ class SystemComparison:
     contrasts: pd.DataFrame
 
 
+@dataclass(kw_only=True)
 class ConditionalSystemComparison:
-    def __init__(self) -> None:
-        self.glrt: GLRT = dict(p=1.0, chi_square=0.0, df=0)
-        self.means = pd.DataFrame()
-        self.slopes = pd.DataFrame()
-        self.contrasts = pd.DataFrame()
-        self.interaction_plot = ggplot()
-        self.data_property = ""
+    glrt: GLRT
+    means: pd.DataFrame
+    slopes: pd.DataFrame
+    contrasts: pd.DataFrame
+    interaction_plot: ggplot
+    data_property: str
 
 
 class Reliability:
@@ -98,7 +98,6 @@ class InferentialAnalysis:
         self.system = system_col
         self.input_id = input_identifier_col
         self.distribution = distribution
-        self.ConditionalSystemComparison = ConditionalSystemComparison()
         self.Reliability = Reliability()
         self.HyperParameterAssessment = HyperParameterAssessment()
         self.ConditionalHyperParameterAssessment = ConditionalHyperParameterAssessment()
@@ -222,7 +221,7 @@ class InferentialAnalysis:
         scale_data_prop: bool = False,
         verbose: bool = True,
         row_filter: str = "",
-    ) -> None:
+    ) -> ConditionalSystemComparison:
         # check input consistency
         if alpha <= 0 or alpha >= 1:
             raise ValueError("alpha must be set to a value in (0,1)!")
@@ -322,7 +321,7 @@ class InferentialAnalysis:
         model_H1.fit(factors=model_factors, REML=False, summarize=False)
 
         # compare models and calculate postHoc
-        self.ConditionalSystemComparison.glrt = self.GLRT(model_H0, model_H1)
+        glrt = self.GLRT(model_H0, model_H1)
 
         # FOR CATEGORICAL data property!!!!
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
@@ -342,20 +341,22 @@ class InferentialAnalysis:
             ]
 
         # simplify postHoc result
+        means = pd.DataFrame()
+        slopes = pd.DataFrame()
         if reported_estimates == "means":
-            self.ConditionalSystemComparison.means = (
+            means = (
                 postHoc_result[0]
                 .drop(columns="DF")
                 .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
             )
         else:
-            self.ConditionalSystemComparison.slopes = (
+            slopes = (
                 postHoc_result[0]
                 .drop(columns="DF")
                 .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
             )
 
-        self.ConditionalSystemComparison.contrasts = (
+        contrasts = (
             postHoc_result[1]
             .drop(columns=["DF", "T-stat", "Z-stat", "Sig"], errors="ignore")
             .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
@@ -364,14 +365,12 @@ class InferentialAnalysis:
         # add effect size (a Hedge's g derivate) to mean model contrasts
         if reported_estimates == "means":
             sigma_residuals = model_H1.ranef_var.loc["Residual", "Std"]
-            self.ConditionalSystemComparison.contrasts = (
-                self.ConditionalSystemComparison.contrasts.assign(
-                    Effect_size_g=lambda df: df.Estimate / sigma_residuals
-                )
+            contrasts = contrasts.assign(
+                Effect_size_g=lambda df: df.Estimate / sigma_residuals
             )
 
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
-            self.ConditionalSystemComparison.interaction_plot = (
+            interaction_plot = (
                 ggplot(postHoc_result[0])
                 + theme_bw()
                 + theme(
@@ -403,7 +402,7 @@ class InferentialAnalysis:
             )
 
         if is_numeric_dtype(model_data[data_prop_col]):
-            self.ConditionalSystemComparison.interaction_plot = (
+            interaction_plot = (
                 ggplot(data=model_data)
                 + theme_bw()
                 + theme(
@@ -426,7 +425,7 @@ class InferentialAnalysis:
                 )
             )
 
-        if self.ConditionalSystemComparison.glrt["p"] <= alpha and verbose:
+        if glrt["p"] <= alpha and verbose:
             print(
                 "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems depend differently to the data property. See contrasts for pairwise comparisons."
             )
@@ -435,7 +434,14 @@ class InferentialAnalysis:
                 "GLRT p-value > alpha: Null hypothesis can not be rejected! No statistical signifcant difference(s) between systems."
             )
 
-        self.ConditionalSystemComparison.data_property = data_prop_col
+        return ConditionalSystemComparison(
+            means=means,
+            glrt=glrt,
+            data_property=data_prop_col,
+            slopes=slopes,
+            contrasts=contrasts,
+            interaction_plot=interaction_plot,
+        )
 
     def icc(
         self, algorithm_id: str, facet_cols: str | list[str], row_filter: str = ""

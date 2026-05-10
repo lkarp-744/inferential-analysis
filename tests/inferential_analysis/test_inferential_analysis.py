@@ -130,7 +130,9 @@ def test_conditional_system_comparison_word_rarity(
         input_identifier_col="summary_id",
     )
 
-    inferential_analysis.conditional_system_comparison(data_prop_col="word_rarity")
+    result = inferential_analysis.conditional_system_comparison(
+        data_prop_col="word_rarity"
+    )
 
     assert capsys.readouterr().out == (
         "Data property is a numeric variable. Applying indivdual trends model and reporting slopes.\n"
@@ -139,30 +141,22 @@ def test_conditional_system_comparison_word_rarity(
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems depend differently to the data property. See contrasts for pairwise comparisons.\n"
     )
 
-    assert (
-        inferential_analysis.ConditionalSystemComparison.data_property == "word_rarity"
-    )
-    assert inferential_analysis.ConditionalSystemComparison.glrt == dict(
+    assert result.data_property == "word_rarity"
+    assert result.glrt == dict(
         chi_square=pytest.approx(np.float64(4.46357), abs=0.0001),
         df=1,
         p=pytest.approx(np.float64(0.0346), abs=0.0001),
     )
-    assert isinstance(
-        inferential_analysis.ConditionalSystemComparison.slopes, pd.DataFrame
-    )
-    assert inferential_analysis.ConditionalSystemComparison.slopes.to_dict("list") == {
+    assert isinstance(result.slopes, pd.DataFrame)
+    assert result.slopes.to_dict("list") == {
         "system": ["Baseline", "SOTA"],
         "Estimate": [-0.001, -0.001],
         "95CI_lo": [-0.001, -0.001],
         "95CI_up": [-0.0, -0.0],
         "SE": [0.0, 0.0],
     }
-    assert isinstance(
-        inferential_analysis.ConditionalSystemComparison.contrasts, pd.DataFrame
-    )
-    assert inferential_analysis.ConditionalSystemComparison.contrasts.to_dict(
-        "list"
-    ) == {
+    assert isinstance(result.contrasts, pd.DataFrame)
+    assert result.contrasts.to_dict("list") == {
         "Contrast": ["Baseline - SOTA"],
         "Estimate": [0.0],
         "95CI_lo": [0.0],
@@ -171,10 +165,7 @@ def test_conditional_system_comparison_word_rarity(
         "P-val": [0.035],
     }
 
-    assert isinstance(
-        inferential_analysis.ConditionalSystemComparison.interaction_plot,
-        plotnine.ggplot,
-    )
+    assert isinstance(result.interaction_plot, plotnine.ggplot)
 
 
 @pytest.mark.mpl_image_compare
@@ -189,9 +180,11 @@ def test_conditional_system_comparison_word_rarity_interaction_plot(
         input_identifier_col="summary_id",
     )
 
-    inferential_analysis.conditional_system_comparison(data_prop_col="word_rarity")
+    result = inferential_analysis.conditional_system_comparison(
+        data_prop_col="word_rarity"
+    )
 
-    return inferential_analysis.ConditionalSystemComparison.interaction_plot.draw()
+    return result.interaction_plot.draw()
 
 
 @pytest.mark.integration
@@ -205,7 +198,7 @@ def test_conditional_system_comparison_flesh_kincaid_score(
         input_identifier_col="summary_id",
     )
 
-    inferential_analysis.conditional_system_comparison(
+    result = inferential_analysis.conditional_system_comparison(
         data_prop_col="flesch_kincaid", row_filter="flesch_kincaid >= 0"
     )
 
@@ -216,31 +209,22 @@ def test_conditional_system_comparison_flesh_kincaid_score(
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems depend differently to the data property. See contrasts for pairwise comparisons.\n"
     )
 
-    assert (
-        inferential_analysis.ConditionalSystemComparison.data_property
-        == "flesch_kincaid"
-    )
-    assert inferential_analysis.ConditionalSystemComparison.glrt == dict(
+    assert result.data_property == "flesch_kincaid"
+    assert result.glrt == dict(
         chi_square=pytest.approx(np.float64(4.30353), abs=0.0001),
         df=1,
         p=pytest.approx(np.float64(0.03803), abs=0.0001),
     )
-    assert isinstance(
-        inferential_analysis.ConditionalSystemComparison.slopes, pd.DataFrame
-    )
-    assert inferential_analysis.ConditionalSystemComparison.slopes.to_dict("list") == {
+    assert isinstance(result.slopes, pd.DataFrame)
+    assert result.slopes.to_dict("list") == {
         "system": ["Baseline", "SOTA"],
         "Estimate": [0.0, 0.0],
         "95CI_up": [0.0, 0.001],
         "95CI_lo": [0.0, -0.0],
         "SE": [0.0, 0.0],
     }
-    assert isinstance(
-        inferential_analysis.ConditionalSystemComparison.contrasts, pd.DataFrame
-    )
-    assert inferential_analysis.ConditionalSystemComparison.contrasts.to_dict(
-        "list"
-    ) == {
+    assert isinstance(result.contrasts, pd.DataFrame)
+    assert result.contrasts.to_dict("list") == {
         "Contrast": ["Baseline - SOTA"],
         "Estimate": [-0.0],
         "95CI_lo": [-0.0],
@@ -249,10 +233,7 @@ def test_conditional_system_comparison_flesh_kincaid_score(
         "P-val": [0.038],
     }
 
-    assert isinstance(
-        inferential_analysis.ConditionalSystemComparison.interaction_plot,
-        plotnine.ggplot,
-    )
+    assert isinstance(result.interaction_plot, plotnine.ggplot)
 
 
 @pytest.mark.mpl_image_compare
@@ -267,9 +248,11 @@ def test_conditional_system_comparison_flesch_kincaid_score_interaction_plot(
         input_identifier_col="summary_id",
     )
 
-    inferential_analysis.conditional_system_comparison(data_prop_col="flesch_kincaid")
+    result = inferential_analysis.conditional_system_comparison(
+        data_prop_col="flesch_kincaid"
+    )
 
-    return inferential_analysis.ConditionalSystemComparison.interaction_plot.draw()
+    return result.interaction_plot.draw()
 
 
 @pytest.mark.integration
