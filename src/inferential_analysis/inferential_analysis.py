@@ -95,16 +95,12 @@ class InferentialAnalysis:
         if distribution == "gaussian":
             if not is_numeric_dtype(self.data[self.metric]):
                 raise ValueError(
-                    "Data type of provided evaluation metric"
-                    + self.metric
-                    + " is not numerical!"
+                    f"Data type of provided evaluation metric {self.metric} is not numerical!"
                 )
         elif distribution == "binomial":
             if not len(self.data[self.metric].unique()) == 2:
                 raise ValueError(
-                    "Provided evaluation metric data column "
-                    + self.metric
-                    + " has more or less than 2 values. You can't run a binomial model."
+                    f"Provided evaluation metric data column {self.metric} has more or less than 2 values. You can't run a binomial model."
                 )
 
         # make sure that self.system and input_identifer_var are proper categoricals
@@ -114,9 +110,7 @@ class InferentialAnalysis:
 
         if not isinstance(self.data[self.system].dtype, pd.CategoricalDtype):
             print(
-                "WARNING: "
-                + self.system
-                + " is not categorical! Datatype will be converted."
+                f"WARNING: {self.system} is not categorical! Datatype will be converted."
             )
             self.data = self.data.astype({self.system: "string"})
             self.data = self.data.astype({self.system: "categorical"})
@@ -235,9 +229,7 @@ class InferentialAnalysis:
             reported_estimates = "slopes"
         else:
             raise ValueError(
-                "Data property column "
-                + data_prop_col
-                + " data type is neither numeric nor categorical/string."
+                f"Data property column {data_prop_col} data type is neither numeric nor categorical/string."
             )
 
         # minimize data to speed processing and removing rows with missing values
@@ -259,34 +251,12 @@ class InferentialAnalysis:
 
         # instantiate and fit models
         if scale_data_prop:
-            data_prop_col_m = "scale(" + data_prop_col + ")"
+            data_prop_col_m = f"scale({data_prop_col})"
         else:
             data_prop_col_m = data_prop_col
 
-        formula_H1 = (
-            self.metric
-            + " ~ "
-            + self.system
-            + " + "
-            + data_prop_col_m
-            + " + "
-            + self.system
-            + ":"
-            + data_prop_col_m
-            + " + ( 1 | "
-            + self.input_id
-            + " )"
-        )
-        formula_H0 = (
-            self.metric
-            + " ~ "
-            + self.system
-            + " + "
-            + data_prop_col_m
-            + " + ( 1 | "
-            + self.input_id
-            + " )"
-        )
+        formula_H1 = f"{self.metric} ~ {self.system} + {data_prop_col} + {self.system}:{data_prop_col_m} + ( 1 | {self.input_id} )"
+        formula_H0 = f"{self.metric} ~ {self.system} + {data_prop_col_m} + ( 1 | {self.input_id} )"
 
         model_H1 = Lmer(formula=formula_H1, data=model_data, family=self.distribution)
         model_H0 = Lmer(formula=formula_H0, data=model_data, family=self.distribution)
@@ -441,9 +411,7 @@ class InferentialAnalysis:
 
         for c in var_components:
             if not isinstance(self.data[c].dtype, pd.CategoricalDtype):
-                print(
-                    "WARNING: " + c + " is not categorical! Datatype will be converted."
-                )
+                print(f"WARNING: {c} is not categorical! Datatype will be converted.")
                 self.data = self.data.astype({c: "string"})
                 self.data = self.data.astype({c: "category"})
 
@@ -457,9 +425,8 @@ class InferentialAnalysis:
 
         # instantiate and fit models
         formula_var_decomposition_model = (
-            self.metric + " ~ " + " + ".join([f"( 1 | {c})" for c in var_components])
+            f"{self.metric} ~ {' + '.join([f'( 1 | {c})' for c in var_components])}"
         )
-
         var_decomposition_model = Lmer(
             formula_var_decomposition_model, data=model_data, family=self.distribution
         )
@@ -488,9 +455,7 @@ class InferentialAnalysis:
         # make sure that hyperparameter_col and input_identifer_var are proper categoricals
         if not isinstance(self.data[hyperparameter_col].dtype, pd.CategoricalDtype):
             print(
-                "WARNING: "
-                + hyperparameter_col
-                + " is not categorical! Datatype will be converted."
+                f"WARNING: {hyperparameter_col} is not categorical! Datatype will be converted."
             )
             self.data = self.data.astype({hyperparameter_col: "string"})
             self.data = self.data.astype({hyperparameter_col: "category"})
@@ -584,9 +549,7 @@ class InferentialAnalysis:
         # make sure that hyperparameter_col is a proper categorical
         if not isinstance(self.data[hyperparameter_col].dtype, pd.CategoricalDtype):
             print(
-                "WARNING: "
-                + hyperparameter_col
-                + " is not categorical! Datatype will be converted."
+                f"WARNING: {hyperparameter_col} is not categorical! Datatype will be converted."
             )
             self.data = self.data.astype({hyperparameter_col: "string"})
             self.data = self.data.astype({hyperparameter_col: "category"})
@@ -618,9 +581,7 @@ class InferentialAnalysis:
             reported_estimates = "slopes"
         else:
             raise ValueError(
-                "Data property column "
-                + data_prop_col
-                + " data type is neither numeric nor categorical/string."
+                f"Data property column {data_prop_col} data type is neither numeric nor categorical/string."
             )
 
         # minimize data to speed processing and remove rows with missing values
@@ -641,10 +602,9 @@ class InferentialAnalysis:
             ].cat.remove_unused_categories()
 
         # instantiate and fit models
-        if scale_data_prop:
-            data_prop_col_m = "scale(" + data_prop_col + ")"
-        else:
-            data_prop_col_m = data_prop_col
+        data_prop_col_m = (
+            f"scale({data_prop_col})" if scale_data_prop else data_prop_col
+        )
 
         formula_H1 = f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m} + {hyperparameter_col}:{data_prop_col_m} + ( 1 | {self.input_id} )"
         formula_H0 = f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m} + ( 1 | {self.input_id} )"
