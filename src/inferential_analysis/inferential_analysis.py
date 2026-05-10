@@ -59,10 +59,10 @@ class ConditionalSystemComparison:
     data_property: str
 
 
+@dataclass(kw_only=True)
 class Reliability:
-    def __init__(self) -> None:
-        self.algorithm = ""
-        self.icc = pd.DataFrame()
+    algorithm: str
+    icc: pd.DataFrame
 
 
 class HyperParameterAssessment:
@@ -98,7 +98,6 @@ class InferentialAnalysis:
         self.system = system_col
         self.input_id = input_identifier_col
         self.distribution = distribution
-        self.Reliability = Reliability()
         self.HyperParameterAssessment = HyperParameterAssessment()
         self.ConditionalHyperParameterAssessment = ConditionalHyperParameterAssessment()
 
@@ -445,7 +444,7 @@ class InferentialAnalysis:
 
     def icc(
         self, algorithm_id: str, facet_cols: str | list[str], row_filter: str = ""
-    ) -> None:
+    ) -> Reliability:
         # check if variables for random interceps have the correct data type
         if isinstance(facet_cols, str):
             facet_cols = [facet_cols]
@@ -459,8 +458,6 @@ class InferentialAnalysis:
                 )
                 self.data = self.data.astype({c: "string"})
                 self.data = self.data.astype({c: "category"})
-
-        self.Reliability.algorithm = algorithm_id
 
         # minimize data to speed processing and removing rows with missing values
         model_data = self.data.query(f"{self.system} == '{algorithm_id}'").copy()
@@ -483,12 +480,10 @@ class InferentialAnalysis:
         var_decomposition_model.fit(summarize=False, control="calc.derivs = FALSE")
 
         # calculate icc based on the variance decomposition
-        self.Reliability.icc = var_decomposition_model.ranef_var.drop(
-            columns=["Name", "Std"]
-        )
-        self.Reliability.icc["ICC"] = (
-            self.Reliability.icc["Var"] * 100 / sum(self.Reliability.icc["Var"])
-        )
+        icc_data_frame = var_decomposition_model.ranef_var.drop(columns=["Name", "Std"])
+        icc_data_frame["ICC"] = icc_data_frame["Var"] * 100 / sum(icc_data_frame["Var"])
+
+        return Reliability(algorithm=algorithm_id, icc=icc_data_frame)
 
     def hyperparameter_assessment(
         self,

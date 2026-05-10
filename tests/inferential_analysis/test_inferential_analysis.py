@@ -265,7 +265,7 @@ def test_icc(
         system_col="system",
         input_identifier_col="summary_id",
     )
-    inferential_analysis.icc(
+    result = inferential_analysis.icc(
         algorithm_id="SOTA", facet_cols=["seed", "lambda", "distribution"]
     )
 
@@ -276,8 +276,9 @@ def test_icc(
         "Calculating variance decomposition.\n"
     )
 
-    assert isinstance(inferential_analysis.Reliability.icc, pd.DataFrame)
-    assert inferential_analysis.Reliability.icc.to_dict("list") == dict(
+    assert result.algorithm == "SOTA"
+    assert isinstance(result.icc, pd.DataFrame)
+    assert result.icc.to_dict("list") == dict(
         Var=pytest.approx(
             [0.00991, 0.000077, 0.001318, 0.000032, 0.004485], abs=0.00001
         ),
