@@ -345,7 +345,7 @@ def test_conditional_hyperparameter_assessment_word_rarity(
         input_identifier_col="summary_id",
     )
 
-    inferential_analysis.conditional_hyperparameter_assessment(
+    result = inferential_analysis.conditional_hyperparameter_assessment(
         algorithm_id="SOTA", hyperparameter_col="lambda", data_prop_col="word_rarity"
     )
 
@@ -358,32 +358,21 @@ def test_conditional_hyperparameter_assessment_word_rarity(
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems depend differently to the data property. See contrasts for pairwise comparisons.\n"
     )
 
-    assert inferential_analysis.ConditionalHyperParameterAssessment.glrt == dict(
+    assert result.glrt == dict(
         chi_square=pytest.approx(428.5751, abs=0.0001), df=2, p=0.0
     )
-    assert inferential_analysis.ConditionalHyperParameterAssessment.algorithm == "SOTA"
-    assert (
-        inferential_analysis.ConditionalHyperParameterAssessment.data_property
-        == "word_rarity"
-    )
-    assert isinstance(
-        inferential_analysis.ConditionalHyperParameterAssessment.slopes, pd.DataFrame
-    )
-    assert inferential_analysis.ConditionalHyperParameterAssessment.slopes.to_dict(
-        "list"
-    ) == {
+    assert result.algorithm == "SOTA"
+    assert result.data_property == "word_rarity"
+    assert isinstance(result.slopes, pd.DataFrame)
+    assert result.slopes.to_dict("list") == {
         "lambda": ["0-001", "0-01", "0-1"],
         "Estimate": [-0.001, -0.001, -0.0],
         "95CI_lo": [-0.001, -0.001, -0.0],
         "95CI_up": [-0.0, -0.0, -0.0],
         "SE": [0.0, 0.0, 0.0],
     }
-    assert isinstance(
-        inferential_analysis.ConditionalHyperParameterAssessment.contrasts, pd.DataFrame
-    )
-    assert inferential_analysis.ConditionalHyperParameterAssessment.contrasts.to_dict(
-        "list"
-    ) == {
+    assert isinstance(result.contrasts, pd.DataFrame)
+    assert result.contrasts.to_dict("list") == {
         "Contrast": ["(0-001) - (0-01)", "(0-001) - (0-1)", "(0-01) - (0-1)"],
         "Estimate": [0.0, -0.0, -0.0],
         "95CI_lo": [-0.0, -0.0, -0.0],
@@ -391,10 +380,7 @@ def test_conditional_hyperparameter_assessment_word_rarity(
         "SE": [0.0, 0.0, 0.0],
         "P-val": [0.25, 0.0, 0.0],
     }
-    assert isinstance(
-        inferential_analysis.ConditionalHyperParameterAssessment.interaction_plot,
-        plotnine.ggplot,
-    )
+    assert isinstance(result.interaction_plot, plotnine.ggplot)
 
 
 @pytest.mark.mpl_image_compare
@@ -409,13 +395,11 @@ def test_conditional_hyperparameter_assessment_word_rarity_score_interaction_plo
         input_identifier_col="summary_id",
     )
 
-    inferential_analysis.conditional_hyperparameter_assessment(
+    result = inferential_analysis.conditional_hyperparameter_assessment(
         algorithm_id="SOTA", hyperparameter_col="lambda", data_prop_col="word_rarity"
     )
 
-    return (
-        inferential_analysis.ConditionalHyperParameterAssessment.interaction_plot.draw()
-    )
+    return result.interaction_plot.draw()
 
 
 @pytest.mark.integration
@@ -428,7 +412,7 @@ def test_conditional_hyperparameter_assessment_flesch_kincaid_score(
         system_col="system",
         input_identifier_col="summary_id",
     )
-    inferential_analysis.conditional_hyperparameter_assessment(
+    result = inferential_analysis.conditional_hyperparameter_assessment(
         algorithm_id="SOTA",
         hyperparameter_col="lambda",
         data_prop_col="flesch_kincaid",
@@ -443,32 +427,21 @@ def test_conditional_hyperparameter_assessment_flesch_kincaid_score(
         "P-values adjusted by tukey method for family of 3 estimates\n"
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems depend differently to the data property. See contrasts for pairwise comparisons.\n"
     )
-    assert inferential_analysis.ConditionalHyperParameterAssessment.glrt == dict(
+    assert result.glrt == dict(
         chi_square=pytest.approx(366.5533, abs=0.0001), df=2, p=0.0
     )
-    assert inferential_analysis.ConditionalHyperParameterAssessment.algorithm == "SOTA"
-    assert (
-        inferential_analysis.ConditionalHyperParameterAssessment.data_property
-        == "flesch_kincaid"
-    )
-    assert isinstance(
-        inferential_analysis.ConditionalHyperParameterAssessment.slopes, pd.DataFrame
-    )
-    assert inferential_analysis.ConditionalHyperParameterAssessment.slopes.to_dict(
-        "list"
-    ) == {
+    assert result.algorithm == "SOTA"
+    assert result.data_property == "flesch_kincaid"
+    assert isinstance(result.slopes, pd.DataFrame)
+    assert result.slopes.to_dict("list") == {
         "lambda": ["0-001", "0-01", "0-1"],
         "Estimate": [0.0, 0.0, -0.0],
         "95CI_lo": [0.0, 0.0, -0.0],
         "95CI_up": [0.0, 0.001, -0.0],
         "SE": [0.0, 0.0, 0.0],
     }
-    assert isinstance(
-        inferential_analysis.ConditionalHyperParameterAssessment.contrasts, pd.DataFrame
-    )
-    assert inferential_analysis.ConditionalHyperParameterAssessment.contrasts.to_dict(
-        "list"
-    ) == {
+    assert isinstance(result.contrasts, pd.DataFrame)
+    assert result.contrasts.to_dict("list") == {
         "Contrast": ["(0-001) - (0-01)", "(0-001) - (0-1)", "(0-01) - (0-1)"],
         "Estimate": [-0.0, 0.001, 0.001],
         "95CI_lo": [-0.0, 0.0, 0.0],
@@ -476,10 +449,7 @@ def test_conditional_hyperparameter_assessment_flesch_kincaid_score(
         "SE": [0.0, 0.0, 0.0],
         "P-val": [0.389, 0.0, 0.0],
     }
-    assert isinstance(
-        inferential_analysis.ConditionalHyperParameterAssessment.interaction_plot,
-        plotnine.ggplot,
-    )
+    assert isinstance(result.interaction_plot, plotnine.ggplot)
 
 
 @pytest.mark.mpl_image_compare
@@ -493,13 +463,11 @@ def test_conditional_hyperparameter_assessment_flesch_kincaid_score_interaction_
         system_col="system",
         input_identifier_col="summary_id",
     )
-    inferential_analysis.conditional_hyperparameter_assessment(
+    result = inferential_analysis.conditional_hyperparameter_assessment(
         algorithm_id="SOTA",
         hyperparameter_col="lambda",
         data_prop_col="flesch_kincaid",
         row_filter="flesch_kincaid >= 0",
     )
 
-    return (
-        inferential_analysis.ConditionalHyperParameterAssessment.interaction_plot.draw()
-    )
+    return result.interaction_plot.draw()
