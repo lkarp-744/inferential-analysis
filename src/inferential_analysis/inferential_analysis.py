@@ -106,8 +106,6 @@ class InferentialAnalysis:
                     + self.metric
                     + " has more or less than 2 values. You can't run a binomial model."
                 )
-        else:
-            raise ValueError("You have choosen an currently unsupported distribution.")
 
         # make sure that self.system and input_identifer_var are proper categoricals
         if not isinstance(self.data[self.input_id].dtype, pd.CategoricalDtype):
@@ -832,7 +830,6 @@ class InferentialAnalysis:
                 + ylab("Evaluation Metric")
                 + facet_wrap("system")
                 + geom_point(alpha=0.01)
-                # + geom_density_2d(alpha = .3)
                 + geom_smooth(method="loess", se=False)
             )
         elif isinstance(
