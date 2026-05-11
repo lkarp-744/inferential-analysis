@@ -37,13 +37,33 @@ from plotnine import (
 from pymer4.models import Lmer
 from scipy.stats import chi2
 
-GLRT = TypedDict("GLRT", {"p": float, "chi_square": float, "df": int})
+
+class GeneralizedLikelihoodTestResult(TypedDict):
+    p: float
+    chi_square: float
+    df: int
+
+
+def generalized_likelihood_ratio_test(
+    model_a: Lmer, model_b: Lmer
+) -> GeneralizedLikelihoodTestResult:
+    """Compute the generalized likelihood ratio test between two models."""
+    chi_square = 2 * abs(model_a.logLike - model_b.logLike)
+    delta_params = abs(len(model_a.coefs) - len(model_b.coefs))
+
+    return {
+        "chi_square": chi_square,
+        "df": delta_params,
+        "p": 1 - chi2.cdf(chi_square, df=delta_params),
+    }
+
+
 Distribution = Literal["gaussian", "binomial"]
 
 
 @dataclass(kw_only=True)
 class SystemComparison:
-    glrt: GLRT
+    glrt: GeneralizedLikelihoodTestResult
     means: pd.DataFrame
     contrasts: pd.DataFrame
 
@@ -64,7 +84,7 @@ class Reliability:
 @dataclass(kw_only=True)
 class HyperParameterAssessment:
     algorithm: str
-    glrt: GLRT
+    glrt: GeneralizedLikelihoodTestResult
     means: pd.DataFrame
     contrasts: pd.DataFrame
 
@@ -120,16 +140,6 @@ class InferentialAnalysis:
             lambda x: str(x)
         )
 
-    def GLRT(self, mod1: Lmer, mod2: Lmer) -> GLRT:
-        chi_square = 2 * abs(mod1.logLike - mod2.logLike)
-        delta_params = abs(len(mod1.coefs) - len(mod2.coefs))
-
-        return {
-            "chi_square": chi_square,
-            "df": delta_params,
-            "p": 1 - chi2.cdf(chi_square, df=delta_params),
-        }
-
     def system_comparison(
         self, alpha: float = 0.05, verbose: bool = True, row_filter: str = ""
     ) -> SystemComparison:
@@ -162,7 +172,7 @@ class InferentialAnalysis:
         model_H1.fit(factors=model_factors, REML=False, summarize=False)
 
         # compare models via GLRT
-        glrt = self.GLRT(model_H0, model_H1)
+        glrt = generalized_likelihood_ratio_test(model_H0, model_H1)
 
         # create means and contasts
         postHoc_result = [r for r in model_H1.post_hoc(marginal_vars=self.system)]
@@ -278,7 +288,7 @@ class InferentialAnalysis:
         model_H1.fit(factors=model_factors, REML=False, summarize=False)
 
         # compare models and calculate postHoc
-        glrt = self.GLRT(model_H0, model_H1)
+        glrt = generalized_likelihood_ratio_test(model_H0, model_H1)
 
         # FOR CATEGORICAL data property!!!!
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
@@ -496,7 +506,7 @@ class InferentialAnalysis:
         model_H1.fit(factors=model_factors, REML=False, summarize=False)
 
         # compare models and calculate postHoc stats
-        glrt = self.GLRT(model_H0, model_H1)
+        glrt = generalized_likelihood_ratio_test(model_H0, model_H1)
         postHoc_result = [
             r for r in model_H1.post_hoc(marginal_vars=hyperparameter_col)
         ]
@@ -631,7 +641,7 @@ class InferentialAnalysis:
         model_H1.fit(factors=model_factors, REML=False, summarize=False)
 
         # compare models and calculate postHoc
-        glrt = self.GLRT(model_H0, model_H1)
+        glrt = generalized_likelihood_ratio_test(model_H0, model_H1)
 
         # FOR CATEGORICAL data property!!!!
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
