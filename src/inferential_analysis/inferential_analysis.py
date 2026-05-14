@@ -352,6 +352,7 @@ class InferentialAnalysis:
             ].dropna()
 
         model_data[self.system] = model_data[self.system].cat.remove_unused_categories()
+
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
             model_data[data_prop_col] = model_data[
                 data_prop_col
@@ -373,9 +374,6 @@ class InferentialAnalysis:
         model_factors[self.system] = [s for s in self.data[self.system].cat.categories]
 
         if isinstance(self.data[data_prop_col].dtype, pd.CategoricalDtype):
-            model_data[data_prop_col] = model_data[
-                data_prop_col
-            ].cat.remove_unused_categories()
             model_factors[data_prop_col] = [
                 p for p in model_data[data_prop_col].cat.categories
             ]
