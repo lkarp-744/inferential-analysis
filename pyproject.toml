@@ -5,11 +5,13 @@ description = "Pure-Python inferential analysis"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+  "marginaleffects>=0.5.0",
   "numpy>=2.4.4",
   "pandas>=3.0.2",
   "plotnine>=0.15.4",
   "pymer4>=0.8.3",
   "scipy>=1.17.1",
+  "statsmodels>=0.14.4",
 ]
 
 [dependency-groups]
@@ -43,6 +45,8 @@ module = [
   "plotnine",
   "pymer4.models",
   "scipy.stats",
+  "marginaleffects.*",
+  "statsmodels.*",
 ]
 ignore_missing_imports = true
 

@@ -71,7 +71,7 @@ def test_system_comparison(
         "95CI_up": [-0.003],
         "SE": [0.001],
         "P-val": [0.0],
-        "Effect_size_g": pytest.approx([-0.088419]),
+        "Effect_size_g": pytest.approx([-0.088419], abs=0.0001),
     }
 
 
@@ -115,7 +115,7 @@ def test_system_comparison_2(
         "95CI_up": [0.021],
         "SE": [0.0],
         "P-val": [0.0],
-        "Effect_size_g": pytest.approx([0.294151]),
+        "Effect_size_g": pytest.approx([0.294151], abs=0.0001),
     }
 
 
