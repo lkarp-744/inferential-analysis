@@ -466,14 +466,14 @@ class InferentialAnalysis:
             postHoc_result = h1_results.compute_marginal_effects(
                 marginal_vars=self.system,
                 grouping_vars=data_prop_col,
-                grouping_type=reported_estimates,
+                grouping_type=reported_estimates,  # type: ignore[arg-type]
             )
 
         elif is_numeric_dtype(model_data[data_prop_col]):
             postHoc_result = h1_results.compute_marginal_effects(
                 marginal_vars=data_prop_col,
                 grouping_vars=self.system,
-                grouping_type=reported_estimates,
+                grouping_type=reported_estimates,  # type: ignore[arg-type]
             )
 
         # simplify postHoc result
@@ -778,50 +778,57 @@ class InferentialAnalysis:
         data_prop_col_m = (
             f"scale({data_prop_col})" if scale_data_prop else data_prop_col
         )
-
-        formula_H1 = f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m} + {hyperparameter_col}:{data_prop_col_m} + ( 1 | {self.input_id} )"
-        formula_H0 = f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m} + ( 1 | {self.input_id} )"
-
-        model_H1 = Lmer(formula=formula_H1, data=model_data, family=self.distribution)
-        model_H0 = Lmer(formula=formula_H0, data=model_data, family=self.distribution)
-
-        model_factors = {}
-        model_factors[hyperparameter_col] = [
-            s for s in model_data[hyperparameter_col].cat.categories
-        ]
-
+        model_factors = {
+            hyperparameter_col: [
+                s for s in model_data[hyperparameter_col].cat.categories
+            ]
+        }
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
-            model_data[data_prop_col] = model_data[
-                data_prop_col
-            ].cat.remove_unused_categories()
             model_factors[data_prop_col] = [
                 p for p in model_data[data_prop_col].cat.categories
             ]
 
         print("Fitting H0-model.")
-        model_H0.fit(factors=model_factors, REML=False, summarize=False)
+        results_h0 = LinearMixedEffectsModelResults.from_mixed_model(
+            mixedlm(
+                f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m}",
+                groups=self.input_id,
+                data=model_data,
+            ).fit(reml=False)
+        )
         print("Fitting H1-model.")
-        model_H1.fit(factors=model_factors, REML=False, summarize=False)
+        # model_H1 = Lmer(
+        #     formula=f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m} + {hyperparameter_col}:{data_prop_col_m} + ( 1 | {self.input_id} )",
+        #     data=model_data,
+        #     family=self.distribution,
+        # )
+        # model_H1.fit(factors=model_factors, REML=False, summarize=False)
+        results_h1 = LinearMixedEffectsModelResults.from_mixed_model(
+            mixedlm(
+                f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m} + {hyperparameter_col}:{data_prop_col_m}",
+                data=model_data,
+                groups=self.input_id,
+            ).fit(reml=False)
+        )
+        # results_h1 = LinearMixedEffectsModelResults.from_lmer_model(model_H1)
 
         # compare models and calculate postHoc
-        glrt = generalized_likelihood_ratio_test(model_H0, model_H1)
+        glrt = generalized_likelihood_ratio_test(results_h0, results_h1)
 
         # FOR CATEGORICAL data property!!!!
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
-            postHoc_result = [
-                r
-                for r in model_H1.post_hoc(
-                    marginal_vars=hyperparameter_col, grouping_vars=data_prop_col
-                )
-            ]
+            postHoc_result = results_h1.compute_marginal_effects(
+                marginal_vars=hyperparameter_col,
+                grouping_vars=data_prop_col,
+                grouping_type=reported_estimates,  # type: ignore[arg-type]
+            )
 
         if is_numeric_dtype(model_data[data_prop_col]):
-            postHoc_result = [
-                r
-                for r in model_H1.post_hoc(
-                    marginal_vars=data_prop_col, grouping_vars=hyperparameter_col
-                )
-            ]
+            postHoc_result = results_h1.compute_marginal_effects(
+                marginal_vars=data_prop_col,
+                grouping_vars=hyperparameter_col,
+                grouping_type=reported_estimates,  # type: ignore[arg-type]
+            )
 
         # simplify postHoc result
         means = pd.DataFrame()
@@ -829,13 +836,13 @@ class InferentialAnalysis:
         if reported_estimates == "means":
             means = (
                 postHoc_result[0]
-                .drop(columns="DF")
+                .drop(columns="DF", errors="ignore")
                 .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
             )
         else:
             slopes = (
                 postHoc_result[0]
-                .drop(columns="DF")
+                .drop(columns="DF", errors="ignore")
                 .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
             )
 
@@ -847,9 +854,10 @@ class InferentialAnalysis:
 
         # add effect size (a Hedge's g derivate) to mean model contrasts
         if reported_estimates == "means":
-            sigma_residuals = model_H1.ranef_var.loc["Residual", "Std"]
             contrasts = contrasts.assign(
-                Effect_size_g=lambda df: df.Estimate / sigma_residuals
+                Effect_size_g=lambda df: (
+                    df.Estimate / results_h1.residual_standard_deviation
+                )
             )
 
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
