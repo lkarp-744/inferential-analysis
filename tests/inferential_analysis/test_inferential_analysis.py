@@ -135,7 +135,7 @@ def test_conditional_system_comparison_word_rarity(
     )
 
     assert capsys.readouterr().out == (
-        "Data property is a numeric variable. Applying indivdual trends model and reporting slopes.\n"
+        "Data property is a numeric variable. Applying individual trends model and reporting slopes.\n"
         "Fitting H0-model.\n"
         "Fitting H1-model.\n"
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems depend differently to the data property. See contrasts for pairwise comparisons.\n"
@@ -157,7 +157,7 @@ def test_conditional_system_comparison_word_rarity(
     }
     assert isinstance(result.contrasts, pd.DataFrame)
     assert result.contrasts.to_dict("list") == {
-        "Contrast": ["Baseline - SOTA"],
+        "Contrast": ["(Baseline) - (SOTA)"],
         "Estimate": [0.0],
         "95CI_lo": [0.0],
         "95CI_up": [0.0],
@@ -203,7 +203,7 @@ def test_conditional_system_comparison_flesh_kincaid_score(
     )
 
     assert capsys.readouterr().out == (
-        "Data property is a numeric variable. Applying indivdual trends model and reporting slopes.\n"
+        "Data property is a numeric variable. Applying individual trends model and reporting slopes.\n"
         "Fitting H0-model.\n"
         "Fitting H1-model.\n"
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems depend differently to the data property. See contrasts for pairwise comparisons.\n"
@@ -225,7 +225,7 @@ def test_conditional_system_comparison_flesh_kincaid_score(
     }
     assert isinstance(result.contrasts, pd.DataFrame)
     assert result.contrasts.to_dict("list") == {
-        "Contrast": ["Baseline - SOTA"],
+        "Contrast": ["(Baseline) - (SOTA)"],
         "Estimate": [-0.0],
         "95CI_lo": [-0.0],
         "95CI_up": [-0.0],
@@ -290,6 +290,10 @@ def test_icc(
 def test_hyperparameter_assessment(
     capsys: pytest.CaptureFixture[str], evaluation_data_cnn_all: pd.DataFrame
 ) -> None:
+    # lambda is an python keyword
+    evaluation_data_cnn_all = evaluation_data_cnn_all.rename(
+        columns={"lambda": "lambda_value"}
+    )
     inferential_analysis = InferentialAnalysis(
         evaluation_data=evaluation_data_cnn_all,
         eval_metric_col="rouge_2",
@@ -297,14 +301,14 @@ def test_hyperparameter_assessment(
         input_identifier_col="summary_id",
     )
     result = inferential_analysis.hyperparameter_assessment(
-        algorithm_id="SOTA", hyperparameter_col="lambda"
+        algorithm_id="SOTA", hyperparameter_col="lambda_value"
     )
 
     assert capsys.readouterr().out == (
-        "WARNING: lambda is not categorical! Datatype will be converted.\n"
+        "WARNING: lambda_value is not categorical! Datatype will be converted.\n"
         "Fitting H0-model.\n"
         "Fitting H1-model.\n"
-        "P-values adjusted by tukey method for family of 3 estimates\n"
+        # "P-values adjusted by tukey method for family of 3 estimates\n"
         "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems are different. See contrasts for pairwise comparisons.\n"
     )
     assert result.glrt == dict(
@@ -315,7 +319,7 @@ def test_hyperparameter_assessment(
     assert result.algorithm == "SOTA"
     assert isinstance(result.means, pd.DataFrame)
     assert result.means.to_dict("list") == {
-        "lambda": ["0-001", "0-01", "0-1"],
+        "lambda_value": ["0-001", "0-01", "0-1"],
         "Estimate": [0.209, 0.213, 0.148],
         "95CI_lo": [0.207, 0.211, 0.146],
         "95CI_up": [0.211, 0.215, 0.150],
@@ -324,7 +328,7 @@ def test_hyperparameter_assessment(
 
     assert isinstance(result.contrasts, pd.DataFrame)
     assert result.contrasts.to_dict("list") == {
-        "Contrast": ["(0-001) - (0-01)", "(0-001) - (0-1)", "(0-01) - (0-1)"],
+        "Contrast": ["0-001 - 0-01", "0-001 - 0-1", "0-01 - 0-1"],
         "Estimate": [-0.004, 0.061, 0.065],
         "95CI_lo": [-0.005, 0.060, 0.064],
         "95CI_up": [-0.003, 0.061, 0.065],
@@ -351,7 +355,7 @@ def test_conditional_hyperparameter_assessment_word_rarity(
 
     assert capsys.readouterr().out == (
         "WARNING: lambda is not categorical! Datatype will be converted.\n"
-        "Data property is a numeric variable. Applying indivdual trends model and reporting slopes.\n"
+        "Data property is a numeric variable. Applying individual trends model and reporting slopes.\n"
         "Fitting H0-model.\n"
         "Fitting H1-model.\n"
         "P-values adjusted by tukey method for family of 3 estimates\n"
@@ -421,7 +425,7 @@ def test_conditional_hyperparameter_assessment_flesch_kincaid_score(
 
     assert capsys.readouterr().out == (
         "WARNING: lambda is not categorical! Datatype will be converted.\n"
-        "Data property is a numeric variable. Applying indivdual trends model and reporting slopes.\n"
+        "Data property is a numeric variable. Applying individual trends model and reporting slopes.\n"
         "Fitting H0-model.\n"
         "Fitting H1-model.\n"
         "P-values adjusted by tukey method for family of 3 estimates\n"

@@ -67,7 +67,7 @@ class LinearMixedEffectsModelResults:
     def from_lmer_model(cls, model: Lmer) -> Self:
         return cls(
             log_likelihood=model.logLike,
-            fixed_effects_count=len(model.coeffs),
+            fixed_effects_count=len(model.coefs),
             residual_standard_deviation=model.ranef_var.loc["Residual", "Std"],
             model=model,
         )
@@ -81,41 +81,94 @@ class LinearMixedEffectsModelResults:
             model=model,
         )
 
-    def compute_marginal_effects(self, marginal_vars: str) -> list[pd.DataFrame]:
+    def compute_marginal_effects(
+        self,
+        marginal_vars: str,
+        grouping_vars: str | None = None,
+        grouping_type: Literal["means", "slopes"] = "means",
+    ) -> list[pd.DataFrame]:
         if isinstance(self.model, MixedLMResultsWrapper):
-            return [
-                marginaleffects.avg_predictions(self.model, by=marginal_vars)
-                .to_pandas()
-                .drop(columns=["statistic", "s_value", "p_value"])
-                .round(3)
-                .rename(
-                    columns={
-                        "estimate": "Estimate",
-                        "contrast": "Contrast",
-                        "std_error": "SE",
-                        "conf_low": "2.5_ci",
-                        "conf_high": "97.5_ci",
-                    }
-                ),
-                marginaleffects.avg_comparisons(
-                    self.model, variables={marginal_vars: "revpairwise"}
-                )
-                .to_pandas()
-                .drop(columns=["term", "statistic", "s_value"])
-                .round(3)
-                .rename(
-                    columns={
-                        "estimate": "Estimate",
-                        "contrast": "Contrast",
-                        "std_error": "SE",
-                        "p_value": "P-val",
-                        "conf_low": "2.5_ci",
-                        "conf_high": "97.5_ci",
-                    }
-                ),
-            ]
+            if grouping_vars is None:
+                return [
+                    marginaleffects.avg_predictions(self.model, by=marginal_vars)
+                    .to_pandas()
+                    .drop(columns=["statistic", "s_value", "p_value"])
+                    .round(3)
+                    .rename(
+                        columns={
+                            "estimate": "Estimate",
+                            "contrast": "Contrast",
+                            "std_error": "SE",
+                            "conf_low": "2.5_ci",
+                            "conf_high": "97.5_ci",
+                        }
+                    ),
+                    marginaleffects.avg_comparisons(
+                        self.model, variables={marginal_vars: "revpairwise"}
+                    )
+                    .to_pandas()
+                    .drop(columns=["term", "statistic", "s_value"])
+                    .round(3)
+                    .rename(
+                        columns={
+                            "estimate": "Estimate",
+                            "contrast": "Contrast",
+                            "std_error": "SE",
+                            "p_value": "P-val",
+                            "conf_low": "2.5_ci",
+                            "conf_high": "97.5_ci",
+                        }
+                    ),
+                ]
+            else:
+                return [
+                    marginaleffects.avg_slopes(
+                        self.model,
+                        by=grouping_vars,
+                        variables=marginal_vars,
+                        newdata="mean",
+                    )
+                    .to_pandas()
+                    .drop(
+                        columns=["statistic", "s_value", "p_value", "contrast", "term"]
+                    )
+                    .round(3)
+                    .rename(
+                        columns={
+                            "estimate": "Estimate",
+                            "contrast": "Contrast",
+                            "std_error": "SE",
+                            "conf_low": "2.5_ci",
+                            "conf_high": "97.5_ci",
+                        }
+                    )
+                    if grouping_type == "slopes"
+                    else None,  # TODO: Handle this case
+                    marginaleffects.avg_comparisons(
+                        self.model,
+                        by=grouping_vars,
+                        variables=marginal_vars,
+                        hypothesis="difference ~ revpairwise",
+                    )
+                    .to_pandas()
+                    .drop(columns=["s_value"])
+                    .round(3)
+                    .rename(
+                        columns={
+                            "estimate": "Estimate",
+                            "statistic": "T-stat",
+                            "term": "Contrast",
+                            "std_error": "SE",
+                            "p_value": "P-val",
+                            "conf_low": "2.5_ci",
+                            "conf_high": "97.5_ci",
+                        }
+                    ),
+                ]
 
-        return [r for r in self.model.post_hoc(marginal_vars)]
+        return [
+            r for r in self.model.post_hoc(marginal_vars, grouping_vars=grouping_vars)
+        ]
 
 
 def generalized_likelihood_ratio_test(
@@ -332,7 +385,7 @@ class InferentialAnalysis:
             reported_estimates = "means"
         elif is_numeric_dtype(self.data[data_prop_col]):
             print(
-                "Data property is a numeric variable. Applying indivdual trends model and reporting slopes."
+                "Data property is a numeric variable. Applying individual trends model and reporting slopes."
             )
             reported_estimates = "slopes"
         else:
@@ -364,14 +417,9 @@ class InferentialAnalysis:
         else:
             data_prop_col_m = data_prop_col
 
-        formula_H1 = f"{self.metric} ~ {self.system} + {data_prop_col} + {self.system}:{data_prop_col_m} + ( 1 | {self.input_id} )"
-        formula_H0 = f"{self.metric} ~ {self.system} + {data_prop_col_m} + ( 1 | {self.input_id} )"
-
-        model_H1 = Lmer(formula=formula_H1, data=model_data, family=self.distribution)
-        model_H0 = Lmer(formula=formula_H0, data=model_data, family=self.distribution)
-
-        model_factors = {}
-        model_factors[self.system] = [s for s in self.data[self.system].cat.categories]
+        model_factors = {
+            self.system: [s for s in self.data[self.system].cat.categories]
+        }
 
         if isinstance(self.data[data_prop_col].dtype, pd.CategoricalDtype):
             model_factors[data_prop_col] = [
@@ -379,29 +427,54 @@ class InferentialAnalysis:
             ]
 
         print("Fitting H0-model.")
+        model_H0 = Lmer(
+            formula=f"{self.metric} ~ {self.system} + {data_prop_col_m} + ( 1 | {self.input_id} )",
+            data=model_data,
+            family=self.distribution,
+        )
         model_H0.fit(factors=model_factors, REML=False, summarize=False)
+        h0_results = LinearMixedEffectsModelResults.from_mixed_model(
+            mixedlm(
+                f"{self.metric} ~ {self.system} + {data_prop_col_m}",
+                model_data,
+                groups=self.input_id,
+            ).fit(reml=False)
+        )
+        # h0_results = LinearMixedEffectsModelResults.from_lmer_model(model_H0)
+
         print("Fitting H1-model.")
+        model_H1 = Lmer(
+            formula=f"{self.metric} ~ {self.system} + {data_prop_col} + {self.system}:{data_prop_col_m} + ( 1 | {self.input_id} )",
+            data=model_data,
+            family=self.distribution,
+        )
         model_H1.fit(factors=model_factors, REML=False, summarize=False)
+        h1_results = LinearMixedEffectsModelResults.from_mixed_model(
+            mixedlm(
+                f"{self.metric} ~ {self.system} + {data_prop_col} + {self.system}:{data_prop_col_m}",
+                model_data,
+                groups=self.input_id,
+            ).fit(reml=False)
+        )
+        # h1_results = LinearMixedEffectsModelResults.from_lmer_model(model_H1)
 
         # compare models and calculate postHoc
-        glrt = generalized_likelihood_ratio_test(model_H0, model_H1)
+        glrt = generalized_likelihood_ratio_test(h0_results, h1_results)
 
         # FOR CATEGORICAL data property!!!!
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
-            postHoc_result = [
-                r
-                for r in model_H1.post_hoc(
-                    marginal_vars=self.system, grouping_vars=data_prop_col
-                )
-            ]
+            postHoc_result = h1_results.compute_marginal_effects(
+                marginal_vars=self.system,
+                grouping_vars=data_prop_col,
+                grouping_type=reported_estimates,
+            )
 
-        if is_numeric_dtype(model_data[data_prop_col]):
-            postHoc_result = [
-                r
-                for r in model_H1.post_hoc(
-                    marginal_vars=data_prop_col, grouping_vars=self.system
-                )
-            ]
+        elif is_numeric_dtype(model_data[data_prop_col]):
+            postHoc_result = h1_results.compute_marginal_effects(
+                marginal_vars=data_prop_col,
+                grouping_vars=self.system,
+                grouping_type=reported_estimates,
+            )
 
         # simplify postHoc result
         means = pd.DataFrame()
@@ -409,13 +482,13 @@ class InferentialAnalysis:
         if reported_estimates == "means":
             means = (
                 postHoc_result[0]
-                .drop(columns="DF")
+                .drop(columns="DF", errors="ignore")
                 .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
             )
         else:
             slopes = (
                 postHoc_result[0]
-                .drop(columns="DF")
+                .drop(columns="DF", errors="ignore")
                 .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
             )
 
@@ -427,9 +500,10 @@ class InferentialAnalysis:
 
         # add effect size (a Hedge's g derivate) to mean model contrasts
         if reported_estimates == "means":
-            sigma_residuals = model_H1.ranef_var.loc["Residual", "Std"]
             contrasts = contrasts.assign(
-                Effect_size_g=lambda df: df.Estimate / sigma_residuals
+                Effect_size_g=lambda df: (
+                    df.Estimate / h1_results.residual_standard_deviation
+                )
             )
 
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
@@ -585,44 +659,37 @@ class InferentialAnalysis:
         ].cat.remove_unused_categories()
 
         # instantiate and fit models
-        formula_H1 = f"{self.metric} ~ {hyperparameter_col} + ( 1 | {self.input_id} )"
-        formula_H0 = f"{self.metric} ~ (1 | {self.input_id})"
-
-        model_H1 = Lmer(formula=formula_H1, data=model_data, family=self.distribution)
-        model_H0 = Lmer(formula=formula_H0, data=model_data, family=self.distribution)
-
-        model_factors = {}
-        model_factors[hyperparameter_col] = [
-            s for s in model_data[hyperparameter_col].cat.categories
-        ]
-
         print("Fitting H0-model.")
-        model_H0.fit(REML=False, summarize=False)
+        result_h0 = LinearMixedEffectsModelResults.from_mixed_model(
+            mixedlm(f"{self.metric} ~ 1", data=model_data, groups=self.input_id).fit(
+                reml=False
+            )
+        )
+
         print("Fitting H1-model.")
-        model_H1.fit(factors=model_factors, REML=False, summarize=False)
+        result_h1 = LinearMixedEffectsModelResults.from_mixed_model(
+            mixedlm(
+                f"{self.metric} ~ {hyperparameter_col}",
+                data=model_data,
+                groups=self.input_id,
+            ).fit(reml=False)
+        )
 
         # compare models and calculate postHoc stats
-        glrt = generalized_likelihood_ratio_test(model_H0, model_H1)
-        postHoc_result = [
-            r for r in model_H1.post_hoc(marginal_vars=hyperparameter_col)
-        ]
+        glrt = generalized_likelihood_ratio_test(result_h0, result_h1)
+        means, contrasts = result_h1.compute_marginal_effects(hyperparameter_col)
 
         # simplify postHoc result
-        means = (
-            postHoc_result[0]
-            .drop(columns="DF")
-            .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
+        means = means.drop(columns="DF", errors="ignore").rename(
+            columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"}
         )
-        contrasts = (
-            postHoc_result[1]
-            .drop(columns=["DF", "T-stat", "Z-stat", "Sig"], errors="ignore")
-            .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
-        )
+        contrasts = contrasts.drop(
+            columns=["DF", "T-stat", "Z-stat", "Sig"], errors="ignore"
+        ).rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
 
         # add effect size (a Hedge's g derivate) to mean model contrasts
-        sigma_residuals = model_H1.ranef_var.loc["Residual", "Std"]
         contrasts = contrasts.assign(
-            Effect_size_g=lambda df: df.Estimate / sigma_residuals
+            Effect_size_g=lambda df: df.Estimate / result_h1.residual_standard_deviation
         )
 
         if glrt["p"] <= alpha and verbose:
@@ -682,7 +749,7 @@ class InferentialAnalysis:
             reported_estimates = "means"
         elif is_numeric_dtype(self.data[data_prop_col]):
             print(
-                "Data property is a numeric variable. Applying indivdual trends model and reporting slopes."
+                "Data property is a numeric variable. Applying individual trends model and reporting slopes."
             )
             reported_estimates = "slopes"
         else:
