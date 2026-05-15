@@ -24,10 +24,7 @@ from pandas.api.types import is_numeric_dtype, is_string_dtype
 from plotnine import (
     aes,
     element_blank,
-    facet_wrap,
-    geom_boxplot,
     geom_line,
-    geom_point,
     geom_pointrange,
     geom_smooth,
     ggplot,
@@ -888,64 +885,3 @@ class InferentialAnalysis:
             slopes=slopes,
             interaction_plot=interaction_plot,
         )
-
-    def conditional_system_comparison_plot(
-        self, data_prop_col: str, row_filter: str = ""
-    ) -> ggplot:
-        # minimize data to speed processing and removing rows with missing values
-        if row_filter:
-            model_data = self.data.query(row_filter).copy()
-            model_data = model_data[
-                [self.system, self.metric, data_prop_col, self.input_id]
-            ].dropna()
-        else:
-            model_data = self.data[
-                [self.system, self.metric, data_prop_col, self.input_id]
-            ].dropna()
-
-        model_data[self.system] = model_data[self.system].cat.remove_unused_categories()
-        if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
-            model_data[data_prop_col] = model_data[
-                data_prop_col
-            ].cat.remove_unused_categories()
-
-        if is_numeric_dtype(model_data[data_prop_col]):
-            descriptive_plot = (
-                ggplot(
-                    data=model_data,
-                    mapping=aes(x=data_prop_col, y=self.metric, color=self.system),
-                )
-                + theme_bw()
-                + theme(
-                    panel_grid=element_blank(),
-                    legend_position="none",
-                    legend_title=element_blank(),
-                )
-                + xlab(data_prop_col)
-                + ylab("Evaluation Metric")
-                + facet_wrap("system")
-                + geom_point(alpha=0.01)
-                + geom_smooth(method="loess", se=False)
-            )
-        elif isinstance(
-            model_data[data_prop_col].dtype, pd.CategoricalDtype
-        ) or is_string_dtype(model_data[data_prop_col]):
-            descriptive_plot = (
-                ggplot(
-                    data=model_data,
-                    mapping=aes(x=data_prop_col, y=self.metric, fill=self.system),
-                )
-                + theme_bw()
-                + theme(
-                    panel_grid=element_blank(),
-                    legend_position="none",
-                    legend_title=element_blank(),
-                )
-                + xlab(data_prop_col)
-                + ylab("Evaluation Metric")
-                + geom_boxplot(alpha=0.3)
-            )
-        else:
-            raise ValueError("No plot defined for the data type of data_prop_var.")
-
-        return descriptive_plot
