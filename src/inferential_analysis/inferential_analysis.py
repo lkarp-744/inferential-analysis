@@ -9,11 +9,6 @@ Modifications have been made to ensure compliance with our code quality standard
 This module is licensed under the Apache 2.0 License, given by the original authors.
 """
 
-# The authors of pymer4 recommend to add the following lines when pymer is run inside a jupyter notebook.
-import os
-
-os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
-
 import math
 from dataclasses import dataclass
 from typing import Literal, Self, TypedDict
@@ -33,7 +28,6 @@ from plotnine import (
     xlab,
     ylab,
 )
-from pymer4.models import Lmer
 from scipy.stats import chi2
 from statsmodels.formula.api import mixedlm
 from statsmodels.regression.mixed_linear_model import MixedLMResultsWrapper
@@ -438,6 +432,7 @@ class InferentialAnalysis:
         verbose: bool = True,
         row_filter: str = "",
     ) -> ConditionalSystemComparison:
+        reported_estimates: Literal["means", "slopes"]
         # check input consistency
         if alpha <= 0 or alpha >= 1:
             raise ValueError("alpha must be set to a value in (0,1)!")
@@ -508,6 +503,7 @@ class InferentialAnalysis:
                 groups=self.input_id,
             ).fit(reml=False)
         )
+        data_property_type: Literal["numeric", "categorical"]
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
             data_property_type = "categorical"
         elif is_numeric_dtype(model_data[data_prop_col]):
@@ -540,42 +536,7 @@ class InferentialAnalysis:
     def icc(
         self, algorithm_id: str, facet_cols: str | list[str], row_filter: str = ""
     ) -> Reliability:
-        # check if variables for random interceps have the correct data type
-        if isinstance(facet_cols, str):
-            facet_cols = [facet_cols]
-
-        var_components = [self.input_id] + facet_cols
-
-        for c in var_components:
-            if not isinstance(self.data[c].dtype, pd.CategoricalDtype):
-                print(f"WARNING: {c} is not categorical! Datatype will be converted.")
-                self.data = self.data.astype({c: "string"})
-                self.data = self.data.astype({c: "category"})
-
-        # minimize data to speed processing and removing rows with missing values
-        model_data = self.data.query(f"{self.system} == '{algorithm_id}'").copy()
-
-        if row_filter:
-            model_data = model_data.query(row_filter).copy()
-
-        model_data = model_data[[self.metric] + var_components].dropna()
-
-        # instantiate and fit models
-        formula_var_decomposition_model = (
-            f"{self.metric} ~ {' + '.join([f'( 1 | {c})' for c in var_components])}"
-        )
-        var_decomposition_model = Lmer(
-            formula_var_decomposition_model, data=model_data, family=self.distribution
-        )
-
-        print("Calculating variance decomposition.")
-        var_decomposition_model.fit(summarize=False, control="calc.derivs = FALSE")
-
-        # calculate icc based on the variance decomposition
-        icc_data_frame = var_decomposition_model.ranef_var.drop(columns=["Name", "Std"])
-        icc_data_frame["ICC"] = icc_data_frame["Var"] * 100 / sum(icc_data_frame["Var"])
-
-        return Reliability(algorithm=algorithm_id, icc=icc_data_frame)
+        raise NotImplementedError("Not yet supported")
 
     def hyperparameter_assessment(
         self,

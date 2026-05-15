@@ -257,6 +257,7 @@ def test_conditional_system_comparison_flesch_kincaid_score_interaction_plot(
     return result.interaction_plot.draw()
 
 
+@pytest.mark.skip(reason="ICC with statsmodels not yet implemented")
 @pytest.mark.integration
 def test_icc(
     capsys: pytest.CaptureFixture[str], evaluation_data_cnn_all: pd.DataFrame

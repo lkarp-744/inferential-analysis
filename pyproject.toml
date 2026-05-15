@@ -9,7 +9,6 @@ dependencies = [
   "numpy>=2.4.4",
   "pandas>=3.0.2",
   "plotnine>=0.15.4",
-  "pymer4>=0.8.3",
   "scipy>=1.17.1",
   "statsmodels>=0.14.4",
 ]
@@ -71,6 +70,3 @@ markers = [
   "integration: marks integrations tests (deselect with '-m \"not integration\"')",
   "serial",
 ]
-
-[tool.uv.sources]
-pymer4 = { git = "https://github.com/lkarp-744/pymer4" }
