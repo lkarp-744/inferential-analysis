@@ -58,16 +58,7 @@ class LinearMixedEffectsModelResults:
     # and “estimated marginal means” (EMM), or average predictions using emmeans().
     # It’s named after the second of these, hence the name emmeans
 
-    model: Lmer | MixedLMResultsWrapper
-
-    @classmethod
-    def from_lmer_model(cls, model: Lmer) -> Self:
-        return cls(
-            log_likelihood=model.logLike,
-            fixed_effects_count=len(model.coefs),
-            residual_standard_deviation=model.ranef_var.loc["Residual", "Std"],
-            model=model,
-        )
+    model: MixedLMResultsWrapper
 
     @classmethod
     def from_mixed_model(cls, model: MixedLMResultsWrapper) -> Self:
@@ -84,88 +75,81 @@ class LinearMixedEffectsModelResults:
         grouping_vars: str | None = None,
         grouping_type: Literal["means", "slopes"] = "means",
     ) -> list[pd.DataFrame]:
-        if isinstance(self.model, MixedLMResultsWrapper):
-            if grouping_vars is None:
-                return [
-                    marginaleffects.avg_predictions(self.model, by=marginal_vars)
-                    .to_pandas()
-                    .drop(columns=["statistic", "s_value", "p_value"])
-                    .round(3)
-                    .rename(
-                        columns={
-                            "estimate": "Estimate",
-                            "contrast": "Contrast",
-                            "std_error": "SE",
-                            "conf_low": "2.5_ci",
-                            "conf_high": "97.5_ci",
-                        }
-                    ),
-                    marginaleffects.avg_comparisons(
-                        self.model, variables={marginal_vars: "revpairwise"}
-                    )
-                    .to_pandas()
-                    .drop(columns=["term", "statistic", "s_value"])
-                    .round(3)
-                    .rename(
-                        columns={
-                            "estimate": "Estimate",
-                            "contrast": "Contrast",
-                            "std_error": "SE",
-                            "p_value": "P-val",
-                            "conf_low": "2.5_ci",
-                            "conf_high": "97.5_ci",
-                        }
-                    ),
-                ]
-            else:
-                return [
-                    marginaleffects.avg_slopes(
-                        self.model,
-                        by=grouping_vars,
-                        variables=marginal_vars,
-                        newdata="mean",
-                    )
-                    .to_pandas()
-                    .drop(
-                        columns=["statistic", "s_value", "p_value", "contrast", "term"]
-                    )
-                    .round(3)
-                    .rename(
-                        columns={
-                            "estimate": "Estimate",
-                            "contrast": "Contrast",
-                            "std_error": "SE",
-                            "conf_low": "2.5_ci",
-                            "conf_high": "97.5_ci",
-                        }
-                    )
-                    if grouping_type == "slopes"
-                    else None,  # TODO: Handle this case
-                    marginaleffects.avg_comparisons(
-                        self.model,
-                        by=grouping_vars,
-                        variables=marginal_vars,
-                        hypothesis="difference ~ revpairwise",
-                    )
-                    .to_pandas()
-                    .drop(columns=["s_value"])
-                    .round(3)
-                    .rename(
-                        columns={
-                            "estimate": "Estimate",
-                            "statistic": "T-stat",
-                            "term": "Contrast",
-                            "std_error": "SE",
-                            "p_value": "P-val",
-                            "conf_low": "2.5_ci",
-                            "conf_high": "97.5_ci",
-                        }
-                    ),
-                ]
-
-        return [
-            r for r in self.model.post_hoc(marginal_vars, grouping_vars=grouping_vars)
-        ]
+        if grouping_vars is None:
+            return [
+                marginaleffects.avg_predictions(self.model, by=marginal_vars)
+                .to_pandas()
+                .drop(columns=["statistic", "s_value", "p_value"])
+                .round(3)
+                .rename(
+                    columns={
+                        "estimate": "Estimate",
+                        "contrast": "Contrast",
+                        "std_error": "SE",
+                        "conf_low": "2.5_ci",
+                        "conf_high": "97.5_ci",
+                    }
+                ),
+                marginaleffects.avg_comparisons(
+                    self.model, variables={marginal_vars: "revpairwise"}
+                )
+                .to_pandas()
+                .drop(columns=["term", "statistic", "s_value"])
+                .round(3)
+                .rename(
+                    columns={
+                        "estimate": "Estimate",
+                        "contrast": "Contrast",
+                        "std_error": "SE",
+                        "p_value": "P-val",
+                        "conf_low": "2.5_ci",
+                        "conf_high": "97.5_ci",
+                    }
+                ),
+            ]
+        else:
+            return [
+                marginaleffects.avg_slopes(
+                    self.model,
+                    by=grouping_vars,
+                    variables=marginal_vars,
+                    newdata="mean",
+                )
+                .to_pandas()
+                .drop(columns=["statistic", "s_value", "p_value", "contrast", "term"])
+                .round(3)
+                .rename(
+                    columns={
+                        "estimate": "Estimate",
+                        "contrast": "Contrast",
+                        "std_error": "SE",
+                        "conf_low": "2.5_ci",
+                        "conf_high": "97.5_ci",
+                    }
+                )
+                if grouping_type == "slopes"
+                else None,  # TODO: Handle this case
+                marginaleffects.avg_comparisons(
+                    self.model,
+                    by=grouping_vars,
+                    variables=marginal_vars,
+                    hypothesis="difference ~ revpairwise",
+                )
+                .to_pandas()
+                .drop(columns=["s_value"])
+                .round(3)
+                .rename(
+                    columns={
+                        "estimate": "Estimate",
+                        "statistic": "T-stat",
+                        "term": "Contrast",
+                        "std_error": "SE",
+                        "p_value": "P-val",
+                        "conf_low": "2.5_ci",
+                        "conf_high": "97.5_ci",
+                    }
+                ),
+            ]
 
 
 def generalized_likelihood_ratio_test(
@@ -194,6 +178,7 @@ class SystemComparison:
         cls,
         model_h0: LinearMixedEffectsModelResults,
         model_h1: LinearMixedEffectsModelResults,
+        *,
         system: str,
     ) -> Self:
         glrt = generalized_likelihood_ratio_test(model_h0, model_h1)
@@ -208,20 +193,128 @@ class SystemComparison:
 
         return cls(
             glrt=glrt,
-            means=means.drop(columns="DF", errors="ignore").rename(
+            means=means.rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"}),
+            contrasts=contrasts.rename(
                 columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"}
             ),
-            contrasts=contrasts.drop(
-                columns=["DF", "T-stat", "Z-stat", "Sig"], errors="ignore"
-            ).rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"}),
         )
 
 
-@dataclass(kw_only=True)
-class ConditionalSystemComparison(SystemComparison):
-    slopes: pd.DataFrame
+@dataclass(kw_only=True, frozen=True)
+class ConditionalSystemComparison:
+    glrt: GeneralizedLikelihoodTestResult
+    means: pd.DataFrame | None = None
+    contrasts: pd.DataFrame
+    slopes: pd.DataFrame | None = None
     interaction_plot: ggplot
     data_property: str
+
+    @classmethod
+    def from_results(
+        cls,
+        model_h0: LinearMixedEffectsModelResults,
+        model_h1: LinearMixedEffectsModelResults,
+        *,
+        system: str,
+        metric: str,
+        data_property: str,
+        data_property_type: Literal["categorical", "numeric"],
+        grouping_type: Literal["slopes", "means"],
+        data: pd.DataFrame,
+    ) -> Self:
+        glrt = generalized_likelihood_ratio_test(model_h0, model_h1)
+
+        means = None
+
+        if data_property_type == "categorical":
+            means, contrasts = model_h1.compute_marginal_effects(
+                marginal_vars=system,
+                grouping_vars=data_property,
+                grouping_type=grouping_type,
+            )
+            contrasts = contrasts.assign(
+                Effect_size_g=lambda df: (
+                    df.Estimate / model_h1.residual_standard_deviation
+                )
+            )
+            means = means.rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
+
+        elif data_property_type == "numeric":
+            slopes, contrasts = model_h1.compute_marginal_effects(
+                marginal_vars=data_property,
+                grouping_vars=system,
+                grouping_type=grouping_type,
+            )
+            slopes = slopes.rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
+
+        contrasts = contrasts.drop(columns=["T-stat"]).rename(
+            columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"}
+        )
+
+        if data_property_type == "categorical":
+            interaction_plot = (
+                ggplot(means)
+                + theme_bw()
+                + theme(
+                    panel_grid=element_blank(),
+                    legend_position="top",
+                    legend_title=element_blank(),
+                )
+                + xlab(data_property)
+                + ylab("Estimated Expectation of Evaluation Metric")
+                + geom_pointrange(
+                    aes(
+                        x=data_property,
+                        y="Estimate",
+                        ymin="Estimate - SE",
+                        ymax="Estimate + SE",
+                        colour=system,
+                    ),
+                    alpha=0.7,
+                )
+                + geom_line(
+                    aes(
+                        x=data_property,
+                        y="Estimate",
+                        group=system,
+                        colour=system,
+                    ),
+                    alpha=0.3,
+                )
+            )
+
+        else:
+            interaction_plot = (
+                ggplot(data=data)
+                + theme_bw()
+                + theme(
+                    panel_grid=element_blank(),
+                    legend_position="top",
+                    legend_title=element_blank(),
+                )
+                + xlab(data_property)
+                + ylab("Estimated Expected Evaluation Metric")
+                + geom_smooth(
+                    aes(
+                        x=data_property,
+                        y=metric,
+                        group=system,
+                        linetype=system,
+                    ),
+                    method="lm",
+                    colour="black",
+                    se=False,
+                )
+            )
+
+        return cls(
+            data_property=data_property,
+            contrasts=contrasts,
+            slopes=slopes,
+            means=means,
+            interaction_plot=interaction_plot,
+            glrt=glrt,
+        )
 
 
 @dataclass(kw_only=True)
@@ -324,7 +417,7 @@ class InferentialAnalysis:
             ).fit(reml=False)
         )
 
-        result = SystemComparison.from_results(model_H0, model_H1, self.system)
+        result = SystemComparison.from_results(model_H0, model_H1, system=self.system)
 
         if result.glrt["p"] <= alpha and verbose:
             print(
@@ -415,112 +508,25 @@ class InferentialAnalysis:
                 groups=self.input_id,
             ).fit(reml=False)
         )
-
-        # compare models and calculate postHoc
-        glrt = generalized_likelihood_ratio_test(h0_results, h1_results)
-
-        # FOR CATEGORICAL data property!!!!
         if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
-            postHoc_result = h1_results.compute_marginal_effects(
-                marginal_vars=self.system,
-                grouping_vars=data_prop_col,
-                grouping_type=reported_estimates,  # type: ignore[arg-type]
-            )
-
+            data_property_type = "categorical"
         elif is_numeric_dtype(model_data[data_prop_col]):
-            postHoc_result = h1_results.compute_marginal_effects(
-                marginal_vars=data_prop_col,
-                grouping_vars=self.system,
-                grouping_type=reported_estimates,  # type: ignore[arg-type]
-            )
-
-        # simplify postHoc result
-        means = pd.DataFrame()
-        slopes = pd.DataFrame()
-        if reported_estimates == "means":
-            means = (
-                postHoc_result[0]
-                .drop(columns="DF", errors="ignore")
-                .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
-            )
+            data_property_type = "numeric"
         else:
-            slopes = (
-                postHoc_result[0]
-                .drop(columns="DF", errors="ignore")
-                .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
-            )
+            raise ValueError  # TODO: handle this case
 
-        contrasts = (
-            postHoc_result[1]
-            .drop(columns=["DF", "T-stat", "Z-stat", "Sig"], errors="ignore")
-            .rename(columns={"2.5_ci": "95CI_lo", "97.5_ci": "95CI_up"})
+        result = ConditionalSystemComparison.from_results(
+            h0_results,
+            h1_results,
+            system=self.system,
+            metric=self.metric,
+            data_property=data_prop_col,
+            data_property_type=data_property_type,
+            grouping_type=reported_estimates,
+            data=model_data,
         )
 
-        # add effect size (a Hedge's g derivate) to mean model contrasts
-        if reported_estimates == "means":
-            contrasts = contrasts.assign(
-                Effect_size_g=lambda df: (
-                    df.Estimate / h1_results.residual_standard_deviation
-                )
-            )
-
-        if isinstance(model_data[data_prop_col].dtype, pd.CategoricalDtype):
-            interaction_plot = (
-                ggplot(postHoc_result[0])
-                + theme_bw()
-                + theme(
-                    panel_grid=element_blank(),
-                    legend_position="top",
-                    legend_title=element_blank(),
-                )
-                + xlab(data_prop_col)
-                + ylab("Estimated Expectation of Evaluation Metric")
-                + geom_pointrange(
-                    aes(
-                        x=data_prop_col,
-                        y="Estimate",
-                        ymin="Estimate - SE",
-                        ymax="Estimate + SE",
-                        colour=self.system,
-                    ),
-                    alpha=0.7,
-                )
-                + geom_line(
-                    aes(
-                        x=data_prop_col,
-                        y="Estimate",
-                        group=self.system,
-                        colour=self.system,
-                    ),
-                    alpha=0.3,
-                )
-            )
-
-        if is_numeric_dtype(model_data[data_prop_col]):
-            interaction_plot = (
-                ggplot(data=model_data)
-                + theme_bw()
-                + theme(
-                    panel_grid=element_blank(),
-                    legend_position="top",
-                    legend_title=element_blank(),
-                )
-                + xlab(data_prop_col)
-                + ylab("Estimated Expected Evaluation Metric")
-                + geom_smooth(
-                    aes(
-                        x=data_prop_col,
-                        y=self.metric,
-                        group=self.system,
-                        linetype=self.system,
-                    ),
-                    method="lm",
-                    colour="black",
-                    se=False,
-                )
-            )
-
-        if glrt["p"] <= alpha and verbose:
+        if result.glrt["p"] <= alpha and verbose:
             print(
                 "GLRT p-value <= alpha: Null hypothesis can be rejected! At least two systems depend differently to the data property. See contrasts for pairwise comparisons."
             )
@@ -529,14 +535,7 @@ class InferentialAnalysis:
                 "GLRT p-value > alpha: Null hypothesis can not be rejected! No statistical signifcant difference(s) between systems."
             )
 
-        return ConditionalSystemComparison(
-            means=means,
-            glrt=glrt,
-            data_property=data_prop_col,
-            slopes=slopes,
-            contrasts=contrasts,
-            interaction_plot=interaction_plot,
-        )
+        return result
 
     def icc(
         self, algorithm_id: str, facet_cols: str | list[str], row_filter: str = ""
