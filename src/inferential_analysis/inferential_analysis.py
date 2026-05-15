@@ -172,28 +172,12 @@ class LinearMixedEffectsModelResults:
 
 
 def generalized_likelihood_ratio_test(
-    model_a: Lmer | LinearMixedEffectsModelResults,
-    model_b: Lmer | LinearMixedEffectsModelResults,
+    model_a: LinearMixedEffectsModelResults,
+    model_b: LinearMixedEffectsModelResults,
 ) -> GeneralizedLikelihoodTestResult:
     """Compute the generalized likelihood ratio test between two models."""
-    if isinstance(model_a, LinearMixedEffectsModelResults):
-        a1 = model_a.log_likelihood
-        a2 = model_a.fixed_effects_count
-
-    else:
-        a1 = model_a.logLike
-        a2 = len(model_a.coefs)
-
-    if isinstance(model_b, LinearMixedEffectsModelResults):
-        b1 = model_b.log_likelihood
-        b2 = model_b.fixed_effects_count
-
-    else:
-        b1 = model_b.logLike
-        b2 = len(model_b.coefs)
-
-    chi_square = 2 * abs(a1 - b1)
-    delta_params = abs(a2 - b2)
+    chi_square = 2 * abs(model_a.log_likelihood - model_b.log_likelihood)
+    delta_params = abs(model_a.fixed_effects_count - model_b.fixed_effects_count)
 
     return {
         "chi_square": chi_square,
@@ -417,22 +401,7 @@ class InferentialAnalysis:
         else:
             data_prop_col_m = data_prop_col
 
-        model_factors = {
-            self.system: [s for s in self.data[self.system].cat.categories]
-        }
-
-        if isinstance(self.data[data_prop_col].dtype, pd.CategoricalDtype):
-            model_factors[data_prop_col] = [
-                p for p in model_data[data_prop_col].cat.categories
-            ]
-
         print("Fitting H0-model.")
-        model_H0 = Lmer(
-            formula=f"{self.metric} ~ {self.system} + {data_prop_col_m} + ( 1 | {self.input_id} )",
-            data=model_data,
-            family=self.distribution,
-        )
-        model_H0.fit(factors=model_factors, REML=False, summarize=False)
         h0_results = LinearMixedEffectsModelResults.from_mixed_model(
             mixedlm(
                 f"{self.metric} ~ {self.system} + {data_prop_col_m}",
@@ -440,15 +409,8 @@ class InferentialAnalysis:
                 groups=self.input_id,
             ).fit(reml=False)
         )
-        # h0_results = LinearMixedEffectsModelResults.from_lmer_model(model_H0)
 
         print("Fitting H1-model.")
-        model_H1 = Lmer(
-            formula=f"{self.metric} ~ {self.system} + {data_prop_col} + {self.system}:{data_prop_col_m} + ( 1 | {self.input_id} )",
-            data=model_data,
-            family=self.distribution,
-        )
-        model_H1.fit(factors=model_factors, REML=False, summarize=False)
         h1_results = LinearMixedEffectsModelResults.from_mixed_model(
             mixedlm(
                 f"{self.metric} ~ {self.system} + {data_prop_col} + {self.system}:{data_prop_col_m}",
@@ -456,7 +418,6 @@ class InferentialAnalysis:
                 groups=self.input_id,
             ).fit(reml=False)
         )
-        # h1_results = LinearMixedEffectsModelResults.from_lmer_model(model_H1)
 
         # compare models and calculate postHoc
         glrt = generalized_likelihood_ratio_test(h0_results, h1_results)
@@ -797,12 +758,6 @@ class InferentialAnalysis:
             ).fit(reml=False)
         )
         print("Fitting H1-model.")
-        # model_H1 = Lmer(
-        #     formula=f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m} + {hyperparameter_col}:{data_prop_col_m} + ( 1 | {self.input_id} )",
-        #     data=model_data,
-        #     family=self.distribution,
-        # )
-        # model_H1.fit(factors=model_factors, REML=False, summarize=False)
         results_h1 = LinearMixedEffectsModelResults.from_mixed_model(
             mixedlm(
                 f"{self.metric} ~ {hyperparameter_col} + {data_prop_col_m} + {hyperparameter_col}:{data_prop_col_m}",
@@ -810,7 +765,6 @@ class InferentialAnalysis:
                 groups=self.input_id,
             ).fit(reml=False)
         )
-        # results_h1 = LinearMixedEffectsModelResults.from_lmer_model(model_H1)
 
         # compare models and calculate postHoc
         glrt = generalized_likelihood_ratio_test(results_h0, results_h1)
